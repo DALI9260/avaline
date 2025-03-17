@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>선 그리기 프로그램</title>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"></script>
     <style>
         body { text-align: center; font-family: Arial, sans-serif; }
         canvas { border: 1px solid black; cursor: crosshair; }
@@ -20,45 +22,63 @@
     <canvas id="drawingCanvas"></canvas>
     
     <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBBr2xkwrvVYCFpDQCjhNv7BJxN6uht2jA",
+            authDomain: "avalines-642f8.firebaseapp.com",
+            projectId: "avalines-642f8",
+            storageBucket: "avalines-642f8.firebasestorage.app",
+            messagingSenderId: "795496788487",
+            appId: "1:795496788487:web:7eff8c10524434f57bb0a2"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
         const imageUpload = document.getElementById("imageUpload");
         const colorPicker = document.getElementById("colorPicker");
         let img = new Image();
-        let lines = JSON.parse(localStorage.getItem("savedLines")) || [];
+        let lines = [];
         let currentLine = null;
-        let savedImage = localStorage.getItem("savedImage");
 
-        if (savedImage) {
-            img.src = savedImage;
+        function loadLines() {
+            db.collection("drawingData").doc("sharedCanvas").get().then((doc) => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    lines = data.lines || [];
+                    if (data.image) {
+                        img.src = data.image;
+                    }
+                }
+            }).finally(() => redraw());
         }
-
+        
         imageUpload.addEventListener("change", (event) => {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     img.src = e.target.result;
-                    localStorage.setItem("savedImage", e.target.result);
+                    db.collection("drawingData").doc("sharedCanvas").set({ image: e.target.result }, { merge: true });
                 };
                 reader.readAsDataURL(file);
             }
         });
-
+        
         img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
             redraw();
         };
-
+        
         canvas.addEventListener("mousedown", (event) => {
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
             currentLine = { startX: x, startY: y, endX: x, endY: y, color: colorPicker.value };
         });
-
+        
         canvas.addEventListener("mousemove", (event) => {
             if (!currentLine) return;
             const rect = canvas.getBoundingClientRect();
@@ -67,7 +87,7 @@
             redraw();
             drawLine(currentLine);
         });
-
+        
         canvas.addEventListener("mouseup", () => {
             if (currentLine) {
                 lines.push(currentLine);
@@ -75,7 +95,7 @@
                 currentLine = null;
             }
         });
-
+        
         function drawLine(line) {
             ctx.strokeStyle = line.color;
             ctx.lineWidth = 2;
@@ -84,26 +104,24 @@
             ctx.lineTo(line.endX, line.endY);
             ctx.stroke();
         }
-
+        
         function redraw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0);
             lines.forEach(drawLine);
         }
-
+        
         function clearLines() {
             lines = [];
             saveLines();
             redraw();
         }
-
+        
         function saveLines() {
-            localStorage.setItem("savedLines", JSON.stringify(lines));
+            db.collection("drawingData").doc("sharedCanvas").set({ lines: lines }, { merge: true });
         }
 
-        window.onload = () => {
-            redraw();
-        };
+        loadLines();
     </script>
 </body>
 </html>
