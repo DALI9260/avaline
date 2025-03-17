@@ -6,6 +6,7 @@
     <title>선 그리기 프로그램</title>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js"></script>
     <style>
         body { text-align: center; font-family: Arial, sans-serif; }
         canvas { border: 1px solid black; cursor: crosshair; }
@@ -26,13 +27,14 @@
             apiKey: "AIzaSyBBr2xkwrvVYCFpDQCjhNv7BJxN6uht2jA",
             authDomain: "avalines-642f8.firebaseapp.com",
             projectId: "avalines-642f8",
-            storageBucket: "avalines-642f8.firebasestorage.app",
+            storageBucket: "avalines-642f8.appspot.com",
             messagingSenderId: "795496788487",
             appId: "1:795496788487:web:7eff8c10524434f57bb0a2"
         };
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const storage = firebase.storage();
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
         const imageUpload = document.getElementById("imageUpload");
@@ -46,8 +48,8 @@
                 if (doc.exists) {
                     const data = doc.data();
                     lines = data.lines || [];
-                    if (data.image) {
-                        img.src = data.image;
+                    if (data.imageUrl) {
+                        img.src = data.imageUrl;
                     }
                 }
             }).finally(() => redraw());
@@ -56,12 +58,13 @@
         imageUpload.addEventListener("change", (event) => {
             const file = event.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    img.src = e.target.result;
-                    db.collection("drawingData").doc("sharedCanvas").set({ image: e.target.result }, { merge: true });
-                };
-                reader.readAsDataURL(file);
+                const storageRef = storage.ref().child("images/" + file.name);
+                storageRef.put(file).then(snapshot => {
+                    return snapshot.ref.getDownloadURL();
+                }).then(url => {
+                    img.src = url;
+                    db.collection("drawingData").doc("sharedCanvas").set({ imageUrl: url }, { merge: true });
+                });
             }
         });
         
