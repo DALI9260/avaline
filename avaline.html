@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선 그리기 프로그램</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        canvas { border: 1px solid black; cursor: crosshair; }
+        .controls { margin: 10px; }
+    </style>
+</head>
+<body>
+    <h2>이미지 위에 선 그리기</h2>
+    <div class="controls">
+        <input type="file" id="imageUpload" accept="image/*">
+        <button onclick="clearLines()">전체 선 삭제</button>
+        <input type="color" id="colorPicker" value="#ff0000">
+    </div>
+    <canvas id="drawingCanvas"></canvas>
+    
+    <script>
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        const imageUpload = document.getElementById("imageUpload");
+        const colorPicker = document.getElementById("colorPicker");
+        let img = new Image();
+        let lines = JSON.parse(localStorage.getItem("savedLines")) || [];
+        let currentLine = null;
+        let savedImage = localStorage.getItem("savedImage");
+
+        if (savedImage) {
+            img.src = savedImage;
+        }
+
+        imageUpload.addEventListener("change", (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                    localStorage.setItem("savedImage", e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            redraw();
+        };
+
+        canvas.addEventListener("mousedown", (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            currentLine = { startX: x, startY: y, endX: x, endY: y, color: colorPicker.value };
+        });
+
+        canvas.addEventListener("mousemove", (event) => {
+            if (!currentLine) return;
+            const rect = canvas.getBoundingClientRect();
+            currentLine.endX = event.clientX - rect.left;
+            currentLine.endY = event.clientY - rect.top;
+            redraw();
+            drawLine(currentLine);
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            if (currentLine) {
+                lines.push(currentLine);
+                saveLines();
+                currentLine = null;
+            }
+        });
+
+        function drawLine(line) {
+            ctx.strokeStyle = line.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(line.startX, line.startY);
+            ctx.lineTo(line.endX, line.endY);
+            ctx.stroke();
+        }
+
+        function redraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            lines.forEach(drawLine);
+        }
+
+        function clearLines() {
+            lines = [];
+            saveLines();
+            redraw();
+        }
+
+        function saveLines() {
+            localStorage.setItem("savedLines", JSON.stringify(lines));
+        }
+
+        window.onload = () => {
+            redraw();
+        };
+    </script>
+</body>
+</html>
